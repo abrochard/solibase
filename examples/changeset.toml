@@ -1,0 +1,20 @@
+[metadata]
+key = "value"
+any = "metadata you want"
+
+[change]
+
+condition = '''
+Optional field.
+If this returns some rows, your change will not be applied.
+'''
+
+sql = '''
+SQL query to run
+'''
+
+[rollback]
+
+sql = '''
+SQL query to run to rollback the previous one
+'''

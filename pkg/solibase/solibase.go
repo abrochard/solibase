@@ -15,11 +15,12 @@ type Driver interface {
 	CreateChangelogTableIfNotExists() error
 	Exec(query string) error
 	ConditionApply(query string) (bool, error)
-	SaveChangeSet(name, metadata, hash string, rollback bool) error
+	SaveChangeSet(name, metadata, hash string) error
+	SaveRollback(name, hash string) error
 	LastChangeSet() (string, string, error)
 }
 
-func Run(driver Driver, changelog Changelog) int {
+func Run(driver Driver, changelog Changelog, rollback string) int {
 	err := driver.Connect()
 	if err != nil {
 		panic(err)
@@ -30,19 +31,14 @@ func Run(driver Driver, changelog Changelog) int {
 		panic(err)
 	}
 
-	name, hash, err := driver.LastChangeSet()
-	if err != nil {
-		panic(err)
-	}
+	if rollback != "" {
+		fmt.Println("Starting a rollback to before " + rollback)
+		index := findChangeIndex(changelog, rollback)
+		if index < 0 {
+			panic("rollback target not found in changelog")
+		}
 
-	if name == changelog.Files[len(changelog.Files)-1] {
-		fmt.Println("Already up to date")
-		return 0
-	}
-
-	if name == "" {
-		fmt.Println("No changes applied found, running all changelog")
-		err := ApplyChangelog(driver, changelog)
+		err = rollbackChangelog(driver, Changelog{Files: changelog.Files[index:], Names: changelog.Names[index:]})
 		if err != nil {
 			panic(err)
 		}
@@ -50,25 +46,38 @@ func Run(driver Driver, changelog Changelog) int {
 		return 0
 	}
 
-	index := len(changelog.Files) - 1
-	for {
-		if changelog.Files[index] == name {
-			break
-		}
-
-		index--
-		if index < 0 {
-			panic("Last applied change not found")
-		}
+	name, hash, err := driver.LastChangeSet()
+	if err != nil {
+		panic(err)
 	}
 
-	c, err := NewChangeset(changelog.Files[index])
+	if name == changelog.Names[len(changelog.Files)-1] {
+		fmt.Println("Already up to date")
+		return 0
+	}
+
+	if name == "" {
+		fmt.Println("No changes applied found, running all changelog")
+		err := applyChangelog(driver, changelog)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Done")
+		return 0
+	}
+
+	index := findChangeIndex(changelog, name)
+	if index < 0 {
+		panic("Last applied change not found")
+	}
+
+	c, err := NewChangeset(changelog.Names[index], changelog.Files[index])
 	if c.Hash != hash {
 		fmt.Println("Wrong hash of last change applied")
 		return 1
 	}
 
-	err = ApplyChangelog(driver, Changelog{Files: changelog.Files[index+1:]})
+	err = applyChangelog(driver, Changelog{Files: changelog.Files[index+1:], Names: changelog.Names[index+1:]})
 	if err != nil {
 		panic(err)
 	}
@@ -78,14 +87,29 @@ func Run(driver Driver, changelog Changelog) int {
 	return 0
 }
 
-func ApplyChangelog(driver Driver, changelog Changelog) error {
-	for _, filename := range changelog.Files {
-		c, err := NewChangeset(filename)
+func findChangeIndex(changelog Changelog, name string) int {
+	index := len(changelog.Files) - 1
+	for {
+		if changelog.Names[index] == name {
+			break
+		}
+
+		index--
+		if index < 0 {
+			return -1
+		}
+	}
+	return index
+}
+
+func applyChangelog(driver Driver, changelog Changelog) error {
+	for i, filename := range changelog.Files {
+		c, err := NewChangeset(changelog.Names[i], filename)
 		if err != nil {
 			return err
 		}
 
-		err = ApplyChangeset(driver, c)
+		err = applyChangeset(driver, c)
 		if err != nil {
 			return err
 		}
@@ -94,7 +118,7 @@ func ApplyChangelog(driver Driver, changelog Changelog) error {
 	return nil
 }
 
-func ApplyChangeset(driver Driver, changeset Changeset) error {
+func applyChangeset(driver Driver, changeset Changeset) error {
 	if changeset.Change.Condition != "" {
 		valid, err := driver.ConditionApply(changeset.Change.Condition)
 		if err != nil {
@@ -102,6 +126,7 @@ func ApplyChangeset(driver Driver, changeset Changeset) error {
 		}
 		if !valid {
 			// doesn't meet condition
+			fmt.Printf("Changeset %s doesn't meet its condition\n", changeset.Name)
 			return nil
 		}
 	}
@@ -111,10 +136,31 @@ func ApplyChangeset(driver Driver, changeset Changeset) error {
 		return err
 	}
 
-	return driver.SaveChangeSet(changeset.Name, changeset.MetadataJSON, changeset.Hash, false)
+	fmt.Printf("Applied change %s\n", changeset.Name)
+	return driver.SaveChangeSet(changeset.Name, changeset.MetadataJSON, changeset.Hash)
 }
 
-func RollbackChangeset(driver Driver, changeset Changeset) error {
+func rollbackChangelog(driver Driver, changelog Changelog) error {
+	i := len(changelog.Names) - 1
+	for {
+		c, err := NewChangeset(changelog.Names[i], changelog.Files[i])
+		if err != nil {
+			return err
+		}
+
+		err = rollbackChangeset(driver, c)
+		if err != nil {
+			return err
+		}
+
+		i--
+		if i < 0 {
+			return nil
+		}
+	}
+}
+
+func rollbackChangeset(driver Driver, changeset Changeset) error {
 	if changeset.Rollback.Condition != "" {
 		valid, err := driver.ConditionApply(changeset.Rollback.Condition)
 		if err != nil {
@@ -131,5 +177,6 @@ func RollbackChangeset(driver Driver, changeset Changeset) error {
 		return err
 	}
 
-	return driver.SaveChangeSet(changeset.Name, changeset.MetadataJSON, changeset.Hash, true)
+	fmt.Printf("Rolled back change %s\n", changeset.Name)
+	return driver.SaveRollback(changeset.Name, changeset.Hash)
 }

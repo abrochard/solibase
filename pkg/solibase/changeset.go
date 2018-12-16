@@ -26,7 +26,7 @@ type Changeset struct {
 	}
 }
 
-func NewChangeset(filename string) (Changeset, error) {
+func NewChangeset(name, filename string) (Changeset, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return Changeset{}, err
@@ -38,8 +38,7 @@ func NewChangeset(filename string) (Changeset, error) {
 		return Changeset{}, err
 	}
 
-	// set filename as name
-	changeset.Name = filename
+	changeset.Name = name
 
 	// set hash
 	h := sha256.New()

@@ -10,6 +10,7 @@ import (
 
 type Changelog struct {
 	Files []string
+	Names []string `toml:"files"`
 }
 
 func NewChangelog(filename string) (Changelog, error) {
@@ -26,11 +27,11 @@ func NewChangelog(filename string) (Changelog, error) {
 		return changelog, err
 	}
 
-	for i, relativeFileName := range changelog.Files {
+	for _, relativeFileName := range changelog.Names {
 		if filepath.Ext(relativeFileName) != ".toml" {
 			return changelog, errors.New("invalid file: " + relativeFileName)
 		}
-		changelog.Files[i] = filepath.Join(filepath.Dir(filename), relativeFileName)
+		changelog.Files = append(changelog.Files, filepath.Join(filepath.Dir(filename), relativeFileName))
 	}
 
 	return changelog, nil

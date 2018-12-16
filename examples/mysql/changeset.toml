@@ -1,0 +1,25 @@
+[metadata]
+description = "create user table"
+
+
+[change]
+
+condition = '''
+SELECT 1 FROM sqlite_master WHERE type="table" AND name="users"
+'''
+
+
+sql = '''
+CREATE TABLE `users` (
+	`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	`username` TEXT(64) NOT NULL,
+	`email` TEXT(128) NOT NULL,
+	`password` TEXT(254) NOT NULL
+);
+'''
+
+[rollback]
+
+sql = '''
+DROP TABLE users;
+'''

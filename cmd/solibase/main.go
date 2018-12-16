@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "database/sql"
 	"flag"
 	"fmt"
 	"os"
@@ -9,8 +8,6 @@ import (
 
 	"github.com/abrochard/solibase/pkg/solibase"
 	"github.com/abrochard/solibase/pkg/sqlite"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
@@ -81,6 +78,8 @@ func runApp() int {
 	fs.StringVar(&driverName, "driver", driverName, "driver to use")
 	var changelogFile string
 	fs.StringVar(&changelogFile, "changelog", changelogFile, "location of the changelog")
+	var rollback string
+	fs.StringVar(&rollback, "rollback", rollback, "rollback to before the specified change")
 
 	fsx := solibase.FlagSetGenerator{FS: fs}
 
@@ -105,7 +104,7 @@ func runApp() int {
 		return 1
 	}
 
-	return solibase.Run(driver, changelog)
+	return solibase.Run(driver, changelog, rollback)
 }
 
 func registerDrivers() map[string]solibase.Driver {

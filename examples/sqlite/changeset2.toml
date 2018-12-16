@@ -1,0 +1,20 @@
+[metadata]
+description = "create an admin user"
+
+
+[change]
+
+condition = '''
+SELECT 1 FROM users WHERE username="admin";
+'''
+
+
+sql = '''
+INSERT INTO `users` (username, email, password) VALUES ("admin", "admin@test.com", "password");
+'''
+
+[rollback]
+
+sql = '''
+DELETE FROM users WHERE username="admin";
+'''

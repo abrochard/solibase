@@ -1,3 +1,4 @@
 files = [
-       "changeset.toml"
+       "changeset.toml",
+       "changeset2.toml"
 ]

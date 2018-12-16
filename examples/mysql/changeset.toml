@@ -5,13 +5,13 @@ description = "create user table"
 [change]
 
 condition = '''
-SELECT 1 FROM sqlite_master WHERE type="table" AND name="users"
+SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME="users"
 '''
 
 
 sql = '''
 CREATE TABLE `users` (
-	`id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+	`id` INTEGER NOT NULL PRIMARY KEY AUTO_INCREMENT,
 	`username` TEXT(64) NOT NULL,
 	`email` TEXT(128) NOT NULL,
 	`password` TEXT(254) NOT NULL

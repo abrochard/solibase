@@ -33,12 +33,20 @@ func Run(driver Driver, changelog Changelog, rollback string) int {
 
 	if rollback != "" {
 		fmt.Println("Starting a rollback to before " + rollback)
-		index := findChangeIndex(changelog, rollback)
-		if index < 0 {
+		bottom := findChangeIndex(changelog, rollback)
+		if bottom < 0 {
 			panic("rollback target not found in changelog")
 		}
+		lastChange, _, err := driver.LastChangeSet()
+		top := findChangeIndex(changelog, lastChange)
+		if top < 0 {
+			panic("Last applied change not found")
+		}
+		if bottom > top {
+			panic("You are trying to rollback something newer than the last applied change")
+		}
 
-		err = rollbackChangelog(driver, Changelog{Files: changelog.Files[index:], Names: changelog.Names[index:]})
+		err = rollbackChangelog(driver, Changelog{Files: changelog.Files[bottom:top], Names: changelog.Names[bottom:top]})
 		if err != nil {
 			panic(err)
 		}
